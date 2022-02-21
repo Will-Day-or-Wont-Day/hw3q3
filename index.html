@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+
+
+<head>
+    <meta charset="utf-8">
+    <!-- set styles on the top -->
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 2px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+            margin: 30px;
+        }
+
+
+        h1 {
+            margin-left: 30px;
+        }
+
+        .end_points_active {
+            stroke-opacity: 1;
+            fill: #33b9ff;
+            stroke: #33b9ff;
+            stroke-width: 1px;
+        }
+
+        .y.axis {
+            font-size: 14px;
+            stroke-width: 0.5px;
+        }
+
+        .y.axis .tick line {
+            stroke: #f0f0f0;
+            stroke-width: 1px;
+        }
+
+        .x.axis .domain {
+            display: none;
+        }
+
+        .y.axis .domain {
+            display: none;
+        }
+
+        .annotation {
+            font-size: 15px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-style: italic;
+            font-weight: 200;
+        }
+
+        .line_actives  {
+            stroke: #33b9ff;
+        }
+
+        /* .line_retired {
+            stroke: #ddd;
+        } */
+    </style>
+</head>
+
+
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+            Passing TDs
+        </h1>
+
+
+        <svg class = "first_chart" width="800px" height="500px">
+
+        </svg>
+
+        <div class="pop-up">
+        </div>
+
+    </div>
+
+    <div class="chart-container">
+        <h1 class="headline">
+            Passing TDs
+        </h1>
+
+
+        <svg class = "first_chart" width="800px" height="500px">
+
+        </svg>
+
+        <div class="pop-up">
+        </div>
+
+    </div>
+</body>
+
+<!-- add your script blocks at the end -->
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+
+
+<script>
+
+    console.log(d3)
+
+    d3.tsv("cumulative-stats.tsv").then(function(data) {
+        var width = 800;
+        var height = 500;
+
+        d3.csv("player-lookup.csv").then(function(lkp_data) {
+
+        console.log({lkp_data})
+
+        let filter_boi = lkp_data.filter(d => d.player_id == "AikmTr00")[0].age_start
+
+        console.log({filter_boi})
+
+        data.forEach(function(d) {
+            d.name = lkp_data.filter(e => e.player_id == d.player_id)[0].player_name
+            d.age_start = lkp_data.filter(e => e.player_id == d.player_id)[0].age_start
+            })
+        })
+
+        var margin = {top:0, right: 0, bottom: 0, left: 30};
+
+        data.forEach(function(d) {
+            d.tds = +d.tds
+            d.year = +d.year
+            d.age_start = parseInt(d.age_start)
+        })
+
+        console.log({data})
+
+        let index = data.map(function(d) {
+            return{test:  isNaN(d.age_start)}
+        })
+        console.log({index})
+
+        let active_players = data.filter(d => d.year == 2020).map(function(d) {
+            return{id: d.player_id}
+        })
+
+        let data_actives = data.filter( function(d) {
+            return active_players.map(x => x["id"]).includes(d.player_id)
+        })
+
+        let data_retired = data.filter( function(d) {
+            return !active_players.map(x => x["id"]).includes(d.player_id)
+        })
+
+        let x = d3.scaleLinear()
+            .domain(d3.extent(data.map(function (d) {return d.year}))) 
+            .range([margin.left, width - margin.right])
+
+        let x_2 = d3.scaleLinear()
+            .domain(d3.extent(data.map(function (d) {return d.age}))) 
+            .range([margin.left, width - margin.right])
+
+        let y = d3.scaleLinear()
+            .domain(d3.extent(data.map(function (d) {return d.tds})))
+            .range([height - margin.bottom, margin.top])
+
+        let xAxisSettings = d3.axisBottom(x)
+            .ticks(10)
+            .tickSize(12)
+            .tickFormat(d3.format("c"))
+
+        let yAxisSettings = d3.axisRight(y)
+            .ticks(5)
+            .tickSize(width)
+
+        let svg = d3.select("body").select(".first_chart");
+        let svg_2 = d3.select("body").select(".second_chart")
+
+        let yAxisTicks = svg.append("g")
+            .attr("class", "y axis")
+            .call(yAxisSettings)
+
+        let xAxisTicks = svg.append("g")
+            .attr("class", "x axis")
+            .call(xAxisSettings)
+            .attr("transform", `translate(0, ${height - margin.bottom})`)
+
+        let series_td = d3.line()
+            .x(function(d) {return x(d.year)})
+            .y(function(d) {return y(d.tds)});
+
+        let grouped_data_retired = d3.group(data_retired, d => d.player_id)
+
+        console.log({grouped_data_retired})
+
+        let arr = Array.from(grouped_data_retired)
+
+        console.log({arr})
+
+        let tester = Array.from(grouped_data_retired)
+            .map(d => d[1].map(vals => vals.year))
+
+        console.log({tester})
+
+        let grouped_data_actives = d3.group(data_actives, d => d.player_id)
+
+        let line_path = svg.append("g")
+            .selectAll(".line")
+            .data(grouped_data_actives)
+            .join("path")
+            .attr("class","line_actives")
+            .attr("d", function(d) {
+                return series_td(d[1])
+            })
+            .style("fill", "none")
+            .style("stroke-width", d => {
+                if(d[0] == "BradTo00") {
+                    return "4px"
+                }
+                else {
+                    return "1px"
+                }
+            })
+
+        let end_dots = svg.append("g")
+            .selectAll(".points")
+            .data(grouped_data_actives)
+            .join("circle")
+            .attr("class", "end_points_active")
+            .attr("cx", d => x(d[1][d[1].length-1].year))
+            .attr("cy", d=> y(d[1][d[1].length-1].tds))
+            .attr("r", d=> {
+                if(d[0] == "BradTo00") {
+                    return 4
+                }
+                else {
+                    return 1
+                }
+            })
+
+        let line_path_2 = svg.append("g")
+            .selectAll(".line")
+            .data(grouped_data_retired)
+            .join("path")
+            .attr("class","line_retired")
+            .attr("d", function(d) {
+                return series_td(d[1])
+            })
+            .style("fill", "none")
+            .style("stroke", d => {
+                if(["MannPe00", "MariDa00", "FavrBr00","TarkFr00","UnitJo00"].includes(d[0])) {
+                    return "#555"
+                }
+                else {
+                    return "#ddd"
+                }
+            })
+
+        let end_dots_2 = svg.append("g")
+            .selectAll(".points")
+            .data(grouped_data_retired)
+            .join("circle")
+            .attr("class", "end_points")
+            .attr("cx", d => x(d[1][d[1].length-1].year))
+            .attr("cy", d=> y(d[1][d[1].length-1].tds))
+            .attr("r", 1.5)
+            .style("stroke", d => {
+                if(["MannPe00", "MariDa00", "FavrBr00","TarkFr00","UnitJo00"].includes(d[0])) {
+                    return "#555"
+                }
+                else {
+                    return "#ddd"}
+            })
+            .style("fill", d => {
+                if(["MannPe00", "MariDa00", "FavrBr00","TarkFr00","UnitJo00"].includes(d[0])) {
+                    return "#555"
+                }
+                else {
+                    return "#ddd"}
+            })
+
+        svg.append("text")
+            .attr("class", "minor_labels")
+            .attr("x", 285)
+            .attr("y", 272)
+            .text("Unitas")
+            .attr("font-size", "14px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "minor_labels")
+            .attr("x", 340)
+            .attr("y", 230)
+            .text("Tarkenton")
+            .attr("font-size", "14px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "minor_labels")
+            .attr("x", 567)
+            .attr("y", 169)
+            .text("Marino")
+            .attr("font-size", "14px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "minor_labels")
+            .attr("x", 684)
+            .attr("y", 98)
+            .text("Favre")
+            .attr("font-size", "14px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "minor_labels")
+            .attr("x", 739)
+            .attr("y", 74)
+            .text("Manning")
+            .attr("font-size", "14px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "brady")
+            .attr("x", 765)
+            .attr("y", -10)
+            .text("Brady")
+            .attr("font-size", "26px")
+            .attr("stroke-width", "0.5px")
+            .attr("font-family", "arial, helvetica, sans-serif")
+
+        svg.append("text")
+            .attr("class", "chart_title")
+            .attr("x", 10)
+            .attr("y", 0)
+            .text("By Year")
+        
+    })
+</script>
